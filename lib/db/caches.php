@@ -196,4 +196,9 @@ $definitions = array(
         'mode' => cache_store::MODE_APPLICATION,
         'simplekeys' => true,
     ),
+    // used to store capabilities (1 DB request of 500 rows each page load)
+	'cap' => array(
+		'mode' => cache_store::MODE_APPLICATION,
+		'simplekeys' => true,
+	),
 );

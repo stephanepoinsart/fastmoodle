@@ -204,6 +204,7 @@ $ACCESSLIB_PRIVATE->dirtycontexts    = null;    // Dirty contexts cache, loaded 
 $ACCESSLIB_PRIVATE->accessdatabyuser = array(); // Holds the cache of $accessdata structure for users (including $USER)
 $ACCESSLIB_PRIVATE->rolepermissions  = array(); // role permissions cache - helps a lot with mem usage
 $ACCESSLIB_PRIVATE->capabilities     = null;    // detailed information about the capabilities
+$ACCESSLIB_PRIVATE->capabilitiescache = null;
 
 /**
  * Clears accesslib's private caches. ONLY BE USED BY UNIT TESTS
@@ -222,6 +223,7 @@ function accesslib_clear_all_caches_for_unit_testing() {
     }
 
     accesslib_clear_all_caches(true);
+    
 
     unset($USER->access);
 }
@@ -242,6 +244,8 @@ function accesslib_clear_all_caches($resetcontexts) {
     $ACCESSLIB_PRIVATE->accessdatabyuser = array();
     $ACCESSLIB_PRIVATE->rolepermissions  = array();
     $ACCESSLIB_PRIVATE->capabilities     = null;
+    if ($ACCESSLIB_PRIVATE->capabilitiescache!==null)
+    	$ACCESSLIB_PRIVATE->capabilitiescache->delete("capabilities");
 
     if ($resetcontexts) {
         context_helper::reset_caches();
@@ -2902,19 +2906,28 @@ function is_inside_frontpage(context $context) {
 function get_capability_info($capabilityname) {
     global $ACCESSLIB_PRIVATE, $DB; // one request per page only
 
-    //TODO: MUC - this could be cached in shared memory, it would eliminate 1 query per page
+    $cachekey = 'capabilities';
+    if ($ACCESSLIB_PRIVATE->capabilitiescache===null)
+    	$ACCESSLIB_PRIVATE->capabilitiescache=cache::make('core', 'cap');
 
     if (empty($ACCESSLIB_PRIVATE->capabilities)) {
-        $ACCESSLIB_PRIVATE->capabilities = array();
-        $caps = $DB->get_records('capabilities', array(), 'id, name, captype, riskbitmask');
-        foreach ($caps as $cap) {
-            $capname = $cap->name;
-            unset($cap->id);
-            unset($cap->name);
-            $cap->riskbitmask = (int)$cap->riskbitmask;
-            $ACCESSLIB_PRIVATE->capabilities[$capname] = $cap;
-        }
+    	$capcacherequest = $ACCESSLIB_PRIVATE->capabilitiescache->get($cachekey);
+    	if ($capcacherequest===false) {
+
+    		$ACCESSLIB_PRIVATE->capabilities = array();
+    		$caps = $DB->get_records('capabilities', array(), 'name, captype, riskbitmask');
+    		foreach ($caps as $cap) {
+    			$capname = $cap->name;
+    			unset($cap->name);
+    			$cap->riskbitmask = (int)$cap->riskbitmask;
+    			$ACCESSLIB_PRIVATE->capabilities[$capname] = $cap;
+    		}
+    		$ACCESSLIB_PRIVATE->capabilitiescache->set($cachekey, $ACCESSLIB_PRIVATE->capabilities);
+    	} else {
+    		$ACCESSLIB_PRIVATE->capabilities=$capcacherequest;
+    	}
     }
+    //print_r($ACCESSLIB_PRIVATE->capabilities);
 
     return isset($ACCESSLIB_PRIVATE->capabilities[$capabilityname]) ? $ACCESSLIB_PRIVATE->capabilities[$capabilityname] : null;
 }
