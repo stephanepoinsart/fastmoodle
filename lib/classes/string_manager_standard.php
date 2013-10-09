@@ -47,6 +47,8 @@ class core_string_manager_standard implements core_string_manager {
     protected $translist;
     /** @var cache stores list of available translations */
     protected $menucache;
+    
+    protected $finalstringlist;
 
     /**
      * Create new instance of string manager
@@ -58,6 +60,8 @@ class core_string_manager_standard implements core_string_manager {
     public function __construct($otherroot, $localroot, $translist) {
         $this->otherroot    = $otherroot;
         $this->localroot    = $localroot;
+        $this->finalstringlist = array();
+        
         if ($translist) {
             $this->translist = array_combine($translist, $translist);
         } else {
@@ -263,8 +267,18 @@ class core_string_manager_standard implements core_string_manager {
         if ($lang === null) {
             $lang = current_language();
         }
+        
+        // load_component_strings load all the strings used in a module
+        // calling it once per string would be extremely inefficient so we cache the results
+        // into finalstringlist
+        if (array_key_exists($component, $this->finalstringlist)) {
+        	$string=$this->finalstringlist[$component];
+        } else {
+        	$string = $this->load_component_strings($component, $lang);
+     	  	$this->finalstringlist[$component]=$string;
+        }
 
-        $string = $this->load_component_strings($component, $lang);
+
 
         if (!isset($string[$identifier])) {
             if ($component === 'pix' or $component === 'core_pix') {
