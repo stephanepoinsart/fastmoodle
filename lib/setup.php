@@ -493,9 +493,6 @@ if (NO_OUTPUT_BUFFERING) {
     disable_output_buffering();
 }
 
-// Increase memory limits if possible
-raise_memory_limit(MEMORY_STANDARD);
-
 // Time to start counting
 init_performance_info();
 

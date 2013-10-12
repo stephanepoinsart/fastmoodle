@@ -996,16 +996,16 @@ function raise_memory_limit($newlimit) {
 
     } else if ($newlimit == MEMORY_STANDARD) {
         if (PHP_INT_SIZE > 4) {
-            $newlimit = get_real_size('128M'); // 64bit needs more memory
+            $newlimit = 128*1024*1024; // 64bit needs more memory
         } else {
-            $newlimit = get_real_size('96M');
+            $newlimit = 96*1024*1024;
         }
 
     } else if ($newlimit == MEMORY_EXTRA) {
         if (PHP_INT_SIZE > 4) {
-            $newlimit = get_real_size('384M'); // 64bit needs more memory
+            $newlimit = 384*1024*1024; // 64bit needs more memory
         } else {
-            $newlimit = get_real_size('256M');
+            $newlimit = 256*1024*1024;
         }
         if (!empty($CFG->extramemorylimit)) {
             $extra = get_real_size($CFG->extramemorylimit);
@@ -1016,7 +1016,7 @@ function raise_memory_limit($newlimit) {
 
     } else if ($newlimit == MEMORY_HUGE) {
         // MEMORY_HUGE uses 2G or MEMORY_EXTRA, whichever is bigger.
-        $newlimit = get_real_size('2G');
+        $newlimit = 2048*1024*1024;
         if (!empty($CFG->extramemorylimit)) {
             $extra = get_real_size($CFG->extramemorylimit);
             if ($extra > $newlimit) {
