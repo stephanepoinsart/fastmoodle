@@ -246,7 +246,12 @@ class course_modinfo {
      * @return array
      */
     public function get_used_module_names($plural = false) {
-        $modnames = get_module_types_names($plural);
+    	// if we are not inside a course, the course used module list is going to be empty
+    	// faster check because get_module_types_names is slow...
+    	if (empty($this->get_cms()))
+    		return array();
+    		
+    	$modnames = get_module_types_names($plural);
         $modnamesused = array();
         foreach ($this->get_cms() as $cmid => $mod) {
             if (isset($modnames[$mod->modname]) && $mod->uservisible) {
