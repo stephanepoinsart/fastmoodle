@@ -133,15 +133,6 @@ function cron_run() {
             mtrace(" Deleted old backup records");
         }
 
-
-        // Delete old cached texts
-        if (!empty($CFG->cachetext)) {   // Defined in config.php
-            $cachelifetime = time() - $CFG->cachetext - 60;  // Add an extra minute to allow for really heavy sites
-            $DB->delete_records_select('cache_text', "timemodified < ?", array($cachelifetime));
-            mtrace(" Deleted old cache_text records");
-        }
-
-
         if (!empty($CFG->usetags)) {
             require_once($CFG->dirroot.'/tag/lib.php');
             tag_cron();

@@ -201,4 +201,11 @@ $definitions = array(
 		'mode' => cache_store::MODE_APPLICATION,
 		'simplekeys' => true,
 	),
+	// used to cache filtered strings (was "cached" in database before moodle 2.6)
+	'filteredstrings' => array(
+			'mode' => cache_store::MODE_APPLICATION,
+			'simplekeys' => true,
+			'simpledata' => true,
+			'ttl' => $CFG->cachetext,
+	),
 );
