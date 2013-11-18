@@ -539,22 +539,31 @@ if (defined('COMPONENT_CLASSLOADER')) {
 
 // Load up standard libraries
 require_once($CFG->libdir .'/filterlib.php');       // Functions for filtering test as it is output
-require_once($CFG->libdir .'/ajax/ajaxlib.php');    // Functions for managing our use of JavaScript and YUI
+
+if (!defined('FILE_DOWNLOAD_ONLY')) {
+	require_once($CFG->libdir .'/ajax/ajaxlib.php');    // Functions for managing our use of JavaScript and YUI
+}
 require_once($CFG->libdir .'/weblib.php');          // Functions relating to HTTP and content
-require_once($CFG->libdir .'/outputlib.php');       // Functions for generating output
-require_once($CFG->libdir .'/navigationlib.php');   // Class for generating Navigation structure
+if (!defined('FILE_DOWNLOAD_ONLY')) {
+	require_once($CFG->libdir .'/outputlib.php');       // Functions for generating output
+	require_once($CFG->libdir .'/navigationlib.php');   // Class for generating Navigation structure
+}
 require_once($CFG->libdir .'/dmllib.php');          // Database access
 require_once($CFG->libdir .'/datalib.php');         // Legacy lib with a big-mix of functions.
 require_once($CFG->libdir .'/accesslib.php');       // Access control functions
 require_once($CFG->libdir .'/deprecatedlib.php');   // Deprecated functions included for backward compatibility
 require_once($CFG->libdir .'/moodlelib.php');       // Other general-purpose functions
-require_once($CFG->libdir .'/enrollib.php');        // Enrolment related functions
+if (!defined('FILE_DOWNLOAD_ONLY')) {
+	require_once($CFG->libdir .'/enrollib.php');        // Enrolment related functions
+}
 require_once($CFG->libdir .'/pagelib.php');         // Library that defines the moodle_page class, used for $PAGE
 require_once($CFG->libdir .'/blocklib.php');        // Library for controlling blocks
 require_once($CFG->libdir .'/eventslib.php');       // Events functions
 require_once($CFG->libdir .'/grouplib.php');        // Groups functions
 require_once($CFG->libdir .'/sessionlib.php');      // All session and cookie related stuff
-require_once($CFG->libdir .'/editorlib.php');       // All text editor related functions and classes
+if (!defined('FILE_DOWNLOAD_ONLY')) {
+	require_once($CFG->libdir .'/editorlib.php');       // All text editor related functions and classes
+}
 require_once($CFG->libdir .'/messagelib.php');      // Messagelib functions
 require_once($CFG->libdir .'/modinfolib.php');      // Cached information on course-module instances
 require_once($CFG->dirroot.'/cache/lib.php');       // Cache API
@@ -722,19 +731,26 @@ if (!defined('SYSCONTEXTID')) {
     context_system::instance();
 }
 
-// Defining the site - aka frontpage course
-try {
-    $SITE = get_site();
-} catch (moodle_exception $e) {
-    $SITE = null;
-    if (empty($CFG->version)) {
-        $SITE = new stdClass();
-        $SITE->id = 1;
-        $SITE->shortname = null;
-    } else {
-        throw $e;
-    }
+if (!defined('FILE_DOWNLOAD_ONLY')) {
+	// Defining the site - aka frontpage course
+	try {
+		$SITE = get_site();
+	} catch (moodle_exception $e) {
+		$SITE = null;
+		if (empty($CFG->version)) {
+			$SITE = new stdClass();
+			$SITE->id = 1;
+			$SITE->shortname = null;
+		} else {
+			throw $e;
+		}
+	}
+} else {
+	$SITE = new stdClass();
+	$SITE->id = 1;
+	$SITE->shortname = null;
 }
+
 // And the 'default' course - this will usually get reset later in require_login() etc.
 $COURSE = clone($SITE);
 /** @deprecated Id of the frontpage course, use $SITE->id instead */
@@ -825,7 +841,9 @@ if (empty($CFG->lang)) {
 
 // Set the default site locale, a lot of the stuff may depend on this
 // it is definitely too late to call this first in require_login()!
-moodle_setlocale();
+if (!defined('FILE_DOWNLOAD_ONLY')) {
+	moodle_setlocale();
+}
 
 // Create the $PAGE global - this marks the PAGE and OUTPUT fully initialised, this MUST be done at the end of setup!
 if (!empty($CFG->moodlepageclass)) {
