@@ -2839,19 +2839,16 @@ function require_login($courseorid = null, $autologinguest = true, $cm = null, $
             if ($cm->course != $course->id) {
                 throw new coding_exception('course and cm parameters in require_login() call do not match!!');
             }
-            // I dont know if working around this preload code is dangerous but it's definitely much faster
-            if (! defined('FILE_DOWNLOAD_ONLY')) {
-            	// Make sure we have a $cm from get_fast_modinfo as this contains activity access details.
-            	if (!($cm instanceof cm_info)) {
-            		// Note: nearly all pages call get_fast_modinfo anyway and it does not make any
-            		// db queries so this is not really a performance concern, however it is obviously
-            		// better if you use get_fast_modinfo to get the cm before calling this.
-            		$modinfo = get_fast_modinfo($course);
-            		$cm = $modinfo->get_cm($cm->id);
-            	}
-            	$PAGE->set_cm($cm, $course); // Set's up global $COURSE.
-            	$PAGE->set_pagelayout('incourse');
+            // Make sure we have a $cm from get_fast_modinfo as this contains activity access details.
+            if (!($cm instanceof cm_info)) {
+                // Note: nearly all pages call get_fast_modinfo anyway and it does not make any
+                // db queries so this is not really a performance concern, however it is obviously
+                // better if you use get_fast_modinfo to get the cm before calling this.
+                $modinfo = get_fast_modinfo($course);
+                $cm = $modinfo->get_cm($cm->id);
             }
+            $PAGE->set_cm($cm, $course); // Set's up global $COURSE.
+            $PAGE->set_pagelayout('incourse');
         } else {
             $PAGE->set_course($course); // Set's up global $COURSE.
         }
@@ -2918,7 +2915,7 @@ function require_login($courseorid = null, $autologinguest = true, $cm = null, $
     }
 
     // Check whether the user should be changing password (but only if it is REALLY them).
-    if (!defined('FILE_DOWNLOAD_ONLY') && get_user_preferences('auth_forcepasswordchange') && !\core\session\manager::is_loggedinas()) {
+    if (get_user_preferences('auth_forcepasswordchange') && !\core\session\manager::is_loggedinas()) {
         $userauth = get_auth_plugin($USER->auth);
         if ($userauth->can_change_password() and !$preventredirect) {
             if ($setwantsurltome) {
