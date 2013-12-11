@@ -120,12 +120,6 @@ define('COMPLETION_VIEWED', 1);
 define('COMPLETION_NOT_VIEWED', 0);
 
 /**
- * Cache expiry time in seconds (10 minutes)
- * Completion cacheing
- */
-define('COMPLETION_CACHE_EXPIRY', 10*60);
-
-/**
  * Completion details should be ORed together and you should return false if
  * none apply.
  */
@@ -234,6 +228,9 @@ class completion_info {
 
     /* @var array Completion criteria {@link completion_info::get_criteria()}  */
     private $criteria;
+    
+    private static $muc_cache=null;
+    private static $pageload_cache=null;
 
     /**
      * Return array of aggregation methods
@@ -257,6 +254,11 @@ class completion_info {
     public function __construct($course) {
         $this->course = $course;
         $this->course_id = $course->id;
+        
+        if (self::$pageload_cache==null)
+        	self::$pageload_cache = Array();
+        if (self::$muc_cache==null)
+        	self::$muc_cache = cache::make_from_params(cache_store::MODE_SESSION, 'completionlib', 'completion');
     }
 
     /**
@@ -550,7 +552,7 @@ class completion_info {
      * @return void
      */
     public function update_state($cm, $possibleresult=COMPLETION_UNKNOWN, $userid=0) {
-        global $USER, $SESSION;
+        global $USER;
 
         // Do nothing if completion is not enabled for that activity
         if (!$this->is_enabled($cm)) {
@@ -789,7 +791,9 @@ class completion_info {
      * Used by course reset page.
      */
     public function delete_all_completion_data() {
-        global $DB, $SESSION;
+        global $DB;
+        
+        
 
         // Delete from database.
         $DB->delete_records_select('course_modules_completion',
@@ -797,11 +801,8 @@ class completion_info {
                 array($this->course_id));
 
         // Reset cache for current user.
-        if (isset($SESSION->completioncache) &&
-            array_key_exists($this->course_id, $SESSION->completioncache)) {
-
-            unset($SESSION->completioncache[$this->course_id]);
-        }
+		self::$muc_cache->delete($this->course_id);
+		unset(self::$pageload_cache[$cm->course]);
 
         // Wipe course completion data too.
         $this->delete_course_completion_data();
@@ -815,17 +816,18 @@ class completion_info {
      * @param stdClass|cm_info $cm Activity
      */
     public function delete_all_state($cm) {
-        global $SESSION, $DB;
+        global $DB;
 
         // Delete from database
         $DB->delete_records('course_modules_completion', array('coursemoduleid'=>$cm->id));
 
         // Erase cache data for current user if applicable
-        if (isset($SESSION->completioncache) &&
-            array_key_exists($cm->course, $SESSION->completioncache) &&
-            array_key_exists($cm->id, $SESSION->completioncache[$cm->course])) {
+        if (
+        	array_key_exists($cm->course, self::$pageload_cache) &&
+            array_key_exists($cm->id, self::$pageload_cache[$cm->course])) {
 
-            unset($SESSION->completioncache[$cm->course][$cm->id]);
+            unset(self::$pageload_cache[$cm->course][$cm->id]);
+            self::$muc_cache->delete($cm->course);
         }
 
         // Check if there is an associated course completion criteria
@@ -905,34 +907,33 @@ class completion_info {
      * @return object Completion data (record from course_modules_completion)
      */
     public function get_data($cm, $wholecourse = false, $userid = 0, $modinfo = null) {
-        global $USER, $CFG, $SESSION, $DB;
+        global $USER, $CFG, $DB, $SESSION;
 
         // Get user ID
         if (!$userid) {
             $userid = $USER->id;
         }
-
         // Is this the current user?
         $currentuser = $userid==$USER->id;
 
-        if ($currentuser && is_object($SESSION)) {
+        if ($currentuser) {
             // Make sure cache is present and is for current user (loginas
             // changes this)
-            if (!isset($SESSION->completioncache) || $SESSION->completioncacheuserid!=$USER->id) {
-                $SESSION->completioncache = array();
+            if (!isset($SESSION->completioncacheuserid)) {
+            	$SESSION->completioncacheuserid = $USER->id;
+        	} else if ($SESSION->completioncacheuserid!=$USER->id) {
+                self::$muc_cache->purge();
+                self::$pageload_cache=Array();
                 $SESSION->completioncacheuserid = $USER->id;
             }
-            // Expire any old data from cache
-            foreach ($SESSION->completioncache as $courseid=>$activities) {
-                if (empty($activities['updated']) || $activities['updated'] < time()-COMPLETION_CACHE_EXPIRY) {
-                    unset($SESSION->completioncache[$courseid]);
-                }
-            }
             // See if requested data is present, if so use cache to get it
-            if (isset($SESSION->completioncache) &&
-                array_key_exists($this->course->id, $SESSION->completioncache) &&
-                array_key_exists($cm->id, $SESSION->completioncache[$this->course->id])) {
-                return $SESSION->completioncache[$this->course->id][$cm->id];
+            if (!array_key_exists($this->course->id, self::$pageload_cache)) {
+            	self::$pageload_cache[$this->course->id]=self::$muc_cache->get($this->course->id);
+            }
+            if (array_key_exists($this->course->id, self::$pageload_cache)
+            		&& self::$pageload_cache[$this->course->id]!=null
+            		&& array_key_exists($cm->id, self::$pageload_cache[$this->course->id])) {
+            	return self::$pageload_cache[$this->course->id][$cm->id];
             }
         }
 
@@ -973,14 +974,12 @@ class completion_info {
                     $data->viewed          = 0;
                     $data->timemodified    = 0;
                 }
-                $SESSION->completioncache[$this->course->id][$othercm->id] = $data;
+                
+                self::$pageload_cache[$this->course->id][$othercm->id] = $data;
             }
-            $SESSION->completioncache[$this->course->id]['updated'] = time();
-
-            if (!isset($SESSION->completioncache[$this->course->id][$cm->id])) {
-                $this->internal_systemerror("Unexpected error: course-module {$cm->id} could not be found on course {$this->course->id}");
-            }
-            return $SESSION->completioncache[$this->course->id][$cm->id];
+            self::$muc_cache->set($this->course->id, self::$pageload_cache[$this->course->id]);
+            
+            return self::$pageload_cache[$this->course->id][$cm->id];
 
         } else {
             // Get single record
@@ -998,11 +997,7 @@ class completion_info {
 
             // Put in cache
             if ($currentuser) {
-                $SESSION->completioncache[$this->course->id][$cm->id] = $data;
-                // For single updates, only set date if it was empty before
-                if (empty($SESSION->completioncache[$this->course->id]['updated'])) {
-                    $SESSION->completioncache[$this->course->id]['updated'] = time();
-                }
+                self::$pageload_cache[$this->course->id][$cm->id] = $data;
             }
         }
 
@@ -1019,7 +1014,7 @@ class completion_info {
      * @param stdClass $data Data about completion for that user
      */
     public function internal_set_data($cm, $data) {
-        global $USER, $SESSION, $DB;
+        global $USER, $DB;
 
         $transaction = $DB->start_delegated_transaction();
         if (!$data->id) {
@@ -1052,7 +1047,10 @@ class completion_info {
         $event->trigger();
 
         if ($data->userid == $USER->id) {
-            $SESSION->completioncache[$cm->course][$cm->id] = $data;
+        	// tampering with a single sub-key in the cache is not easy and not worth it
+        	// for this unfrequent event, so we drop the completion cache for this course
+        	self::$muc_cache->delete($cm->course);
+            self::$pageload_cache[$cm->course][$cm->id] = $data;
             // reset modinfo for user (no need to call rebuild_course_cache())
             get_fast_modinfo($cm->course, 0, true);
         }

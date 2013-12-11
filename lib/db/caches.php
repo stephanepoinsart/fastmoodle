@@ -206,6 +206,12 @@ $definitions = array(
 			'mode' => cache_store::MODE_APPLICATION,
 			'simplekeys' => true,
 			'simpledata' => true,
-			'ttl' => $CFG->cachetext,
+			'ttl' => 600,
+	),
+	// activities completions for this user session
+	// 1 key = 1 course, a course is an array of cm
+	'completion' => array(
+			'mode' => cache_store::MODE_SESSION,
+			'ttl' => 600,
 	),
 );
